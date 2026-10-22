@@ -112,22 +112,36 @@ pub fn hosts_path() -> Option<PathBuf> {
 /// Candidates in order: the MSI's Program Files install, the per-user installers, winget's
 /// link directory, scoop, then `gh.exe` on PATH. No `.cmd` wrapper is ever launched.
 pub fn find_executable() -> Option<PathBuf> {
+    let bin_name = if cfg!(windows) { "gh.exe" } else { "gh" };
     let mut cands: Vec<PathBuf> = Vec::new();
-    for var in ["ProgramFiles", "ProgramFiles(x86)"] {
-        if let Some(d) = std::env::var_os(var) {
-            cands.push(PathBuf::from(d).join("GitHub CLI").join("gh.exe"));
+    #[cfg(windows)]
+    {
+        for var in ["ProgramFiles", "ProgramFiles(x86)"] {
+            if let Some(d) = std::env::var_os(var) {
+                cands.push(PathBuf::from(d).join("GitHub CLI").join("gh.exe"));
+            }
+        }
+        if let Some(local) = dirs::data_local_dir() {
+            cands.push(local.join("Programs").join("GitHub CLI").join("gh.exe"));
+            cands.push(local.join("Microsoft").join("WinGet").join("Links").join("gh.exe"));
+        }
+        if let Some(h) = dirs::home_dir() {
+            cands.push(h.join("scoop").join("shims").join("gh.exe"));
         }
     }
-    if let Some(local) = dirs::data_local_dir() {
-        cands.push(local.join("Programs").join("GitHub CLI").join("gh.exe"));
-        cands.push(local.join("Microsoft").join("WinGet").join("Links").join("gh.exe"));
-    }
-    if let Some(h) = dirs::home_dir() {
-        cands.push(h.join("scoop").join("shims").join("gh.exe"));
+    #[cfg(not(windows))]
+    {
+        if let Some(h) = dirs::home_dir() {
+            cands.push(h.join(".local").join("bin").join(bin_name));
+        }
+        cands.push(PathBuf::from("/usr/local/bin").join(bin_name));
+        cands.push(PathBuf::from("/usr/bin").join(bin_name));
+        cands.push(PathBuf::from("/bin").join(bin_name));
+        cands.push(PathBuf::from("/home/linuxbrew/.linuxbrew/bin").join(bin_name));
     }
     if let Some(path) = std::env::var_os("PATH") {
         for dir in std::env::split_paths(&path) {
-            cands.push(dir.join("gh.exe"));
+            cands.push(dir.join(bin_name));
         }
     }
     cands.into_iter().find(|p| p.is_file())

@@ -18,10 +18,26 @@ use std::os::windows::ffi::OsStrExt;
 /// Discover installed official Antigravity CLI (`agy.exe`).
 /// Checks `%LOCALAPPDATA%\agy\bin\agy.exe` and `PATH` only (only `.exe` binaries).
 pub fn find_agy() -> Option<PathBuf> {
+    let bin_name = if cfg!(windows) { "agy.exe" } else { "agy" };
     if let Some(local) = dirs::data_local_dir() {
-        let candidate = local.join("agy").join("bin").join("agy.exe");
+        let candidate = local.join("agy").join("bin").join(bin_name);
         if candidate.is_file() {
             return Some(candidate);
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        if let Some(h) = dirs::home_dir() {
+            let candidate = h.join(".local").join("bin").join(bin_name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+        for dir in ["/usr/local/bin", "/usr/bin", "/bin", "/home/linuxbrew/.linuxbrew/bin"] {
+            let candidate = PathBuf::from(dir).join(bin_name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
         }
     }
     if let Some(path_var) = std::env::var_os("PATH") {
@@ -32,8 +48,9 @@ pub fn find_agy() -> Option<PathBuf> {
 
 /// Helper for testing discovery in explicit directories without touching environment.
 fn find_agy_in(dirs: &[PathBuf]) -> Option<PathBuf> {
+    let bin_name = if cfg!(windows) { "agy.exe" } else { "agy" };
     for dir in dirs {
-        let candidate = dir.join("agy.exe");
+        let candidate = dir.join(bin_name);
         if candidate.is_file() {
             return Some(candidate);
         }
@@ -556,12 +573,64 @@ fn run_cmd_conpty(
 
 #[cfg(not(windows))]
 fn run_cmd_conpty(
-    _program: &Path,
-    _args: &[&str],
-    _cwd: Option<&Path>,
-    _timeout: Duration,
+    program: &Path,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout: Duration,
 ) -> Result<String, String> {
-    Err("Antigravity CLI runner requires Windows".into())
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+    use std::time::Instant;
+
+    let mut cmd = Command::new(program);
+    cmd.args(args);
+    if let Some(c) = cwd {
+        cmd.current_dir(c);
+    }
+    cmd.stdin(Stdio::null());
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn {}: {e}", program.display()))?;
+    let start = Instant::now();
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let mut out_bytes = Vec::new();
+                if let Some(mut stdout) = child.stdout.take() {
+                    let mut buf = [0u8; 1024];
+                    while let Ok(n) = stdout.read(&mut buf) {
+                        if n == 0 { break; }
+                        out_bytes.extend_from_slice(&buf[..n]);
+                        if out_bytes.len() > 65536 {
+                            return Err("CLI quota output is too large".into());
+                        }
+                    }
+                }
+                if !status.success() {
+                    let mut err_msg = String::new();
+                    if let Some(mut stderr) = child.stderr.take() {
+                        let _ = stderr.read_to_string(&mut err_msg);
+                    }
+                    return Err(format!("CLI exited with {status}: {err_msg}"));
+                }
+                let text = String::from_utf8_lossy(&out_bytes);
+                return Ok(sanitize_terminal_output(&text));
+            }
+            Ok(None) => {
+                if start.elapsed() > timeout {
+                    let _ = child.kill();
+                    return Err("CLI execution timed out".into());
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Err(e) => {
+                let _ = child.kill();
+                return Err(format!("Error waiting for process: {e}"));
+            }
+        }
+    }
 }
 
 /// Executes official `agy --print /usage` via native ConPTY.

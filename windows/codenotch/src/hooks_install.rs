@@ -64,11 +64,12 @@ pub fn is_installed() -> bool {
 
 pub fn install() -> Result<String, String> {
     let path = settings_path().ok_or("cannot find the user directory")?;
+    let hook_name = if cfg!(windows) { "codenotch-hook.exe" } else { "codenotch-hook" };
     let hook_exe = std::env::current_exe()
         .map_err(|e| e.to_string())?
         .parent()
         .ok_or("cannot locate the program directory")?
-        .join("codenotch-hook.exe");
+        .join(hook_name);
     if !hook_exe.exists() {
         return Err(format!("missing {}", hook_exe.display()));
     }

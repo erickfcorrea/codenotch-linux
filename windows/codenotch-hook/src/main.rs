@@ -33,11 +33,22 @@ fn main() {
     // Give up quietly — never affect Claude Code
 }
 
-/// Pulls "port": N out of %APPDATA%\codenotch\config.json (hand-rolled scan, no dependency)
+/// Pulls "port": N out of the user config.json (hand-rolled scan, no dependency)
 fn read_port() -> u16 {
-    let path = match std::env::var("APPDATA") {
-        Ok(a) => format!("{a}\\codenotch\\config.json"),
-        Err(_) => return DEFAULT_PORT,
+    #[cfg(windows)]
+    let path = std::env::var_os("APPDATA")
+        .map(|a| std::path::PathBuf::from(a).join("codenotch").join("config.json"));
+
+    #[cfg(not(windows))]
+    let path = std::env::var_os("XDG_CONFIG_HOME")
+        .map(|x| std::path::PathBuf::from(x).join("codenotch").join("config.json"))
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(|h| std::path::PathBuf::from(h).join(".config").join("codenotch").join("config.json"))
+        });
+
+    let Some(path) = path else {
+        return DEFAULT_PORT;
     };
     let Ok(txt) = std::fs::read_to_string(path) else {
         return DEFAULT_PORT;
@@ -77,7 +88,8 @@ fn send(port: u16, event: &str, ppid: u32, body: &str) -> std::io::Result<()> {
 fn spawn_main() {
     let Ok(me) = std::env::current_exe() else { return };
     let Some(dir) = me.parent() else { return };
-    let exe = dir.join("codenotch.exe");
+    let exe_name = if cfg!(windows) { "codenotch.exe" } else { "codenotch" };
+    let exe = dir.join(exe_name);
     if !exe.exists() {
         return;
     }

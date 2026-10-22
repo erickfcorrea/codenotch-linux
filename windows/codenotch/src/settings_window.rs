@@ -103,13 +103,20 @@ pub fn quit_app(app: AppHandle) {
 /// The credit line's link, as on the Mac.
 #[tauri::command]
 pub fn open_author_page() {
-    let mut cmd = std::process::Command::new("cmd");
-    cmd.args(["/C", "start", "", "https://x.com/hivinz_"]);
     #[cfg(windows)]
-    {
+    let mut cmd = {
+        let mut c = std::process::Command::new("cmd");
+        c.args(["/C", "start", "", "https://x.com/hivinz_"]);
         use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x0800_0000);
-    }
+        c.creation_flags(0x0800_0000);
+        c
+    };
+    #[cfg(not(windows))]
+    let mut cmd = {
+        let mut c = std::process::Command::new("xdg-open");
+        c.arg("https://x.com/hivinz_");
+        c
+    };
     let _ = cmd.spawn();
 }
 

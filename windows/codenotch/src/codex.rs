@@ -524,11 +524,18 @@ fn native_codex() -> Option<PathBuf> {
     if let Some(local) = dirs::data_local_dir() {
         let mut bins = list_dirs(&local.join("OpenAI/Codex/bin"));
         bins.sort_by_key(|p| std::cmp::Reverse(std::fs::metadata(p).and_then(|m| m.modified()).ok()));
-        if let Some(exe) = bins.into_iter().map(|p| p.join("codex.exe")).find(|p| p.is_file()) {
+        let bin_name = if cfg!(windows) { "codex.exe" } else { "codex" };
+        if let Some(exe) = bins.into_iter().map(|p| p.join(bin_name)).find(|p| p.is_file()) {
             return Some(exe);
         }
     }
-    find_executable().filter(|p| p.extension().and_then(|x| x.to_str()) == Some("exe"))
+    find_executable().filter(|p| {
+        if cfg!(windows) {
+            p.extension().and_then(|x| x.to_str()) == Some("exe")
+        } else {
+            p.is_file()
+        }
+    })
 }
 
 fn app_server_snapshot(result: &serde_json::Value) -> Option<UsageSnapshot> {

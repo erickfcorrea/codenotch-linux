@@ -59,6 +59,38 @@ The installer is not code-signed, so the first time it runs SmartScreen says *Wi
 your PC*. Choose **More info**, then **Run anyway**. Every Windows change also leaves an
 installer on its [Windows Package run](../../actions/workflows/windows-package.yml).
 
+## Linux
+
+[![Download for Linux](https://img.shields.io/badge/Download-Linux%20(.deb%20%2F%20.AppImage)-blue?style=for-the-badge&logo=linux)](../../releases/latest)
+
+A native Linux build powered by Rust + Tauri 2 and WebKitGTK is supported.
+
+### Installation
+
+1. **Debian / Ubuntu (.deb)**:
+   Download the `.deb` package from the [latest release](../../releases/latest) and install:
+   ```sh
+   sudo dpkg -i Codenotch_*_amd64.deb
+   ```
+
+2. **AppImage** (Any distribution):
+   Download the `.AppImage` from [releases](../../releases/latest), mark it executable, and run:
+   ```sh
+   chmod +x Codenotch_*_amd64.AppImage
+   ./Codenotch_*_amd64.AppImage
+   ```
+
+3. **From source**:
+   ```sh
+   sudo apt install build-essential pkg-config libssl-dev libwebkit2gtk-4.1-dev \
+                    libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+   cd windows
+   cargo build --release -p codenotch -p codenotch-hook
+   ./scripts/run-linux.sh
+   ```
+
+> **Note on Wayland & GNOME**: Codenotch runs seamlessly on Wayland sessions using XWayland (`GDK_BACKEND=x11`) to permit edge-pinning and transparency. On GNOME, install the *AppIndicator and KStatusNotifierItem Support* extension to view the system tray icon.
+
 ## Connect your phone
 
 The Codenotch phone app (iOS and Android) can show the same usage

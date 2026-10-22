@@ -216,14 +216,11 @@ The data folder follows the XDG directories (`~/.config/codenotch`), and provide
 found at their Linux paths: `~/.claude`, `~/.codex`, `~/.grok`,
 `~/.config/Cursor/User/globalStorage/state.vscdb`.
 
-What does not work yet, and degrades quietly rather than misbehaving:
-
-| Feature | Why |
-|---|---|
-| Dragging the pill along its edge | Follows the mouse through `GetAsyncKeyState`; needs an X11 pointer query. |
-| Seen-clears-it, and jumping back to the terminal | `focus.rs` reads the foreground window and the process tree through Toolhelp; `/proc` plus a window-manager call would replace it. |
-| Antigravity | Its credential is read from the Windows Credential Manager; libsecret is the equivalent. |
-| App icons taken from an installed `.exe` | The built-in provider SVGs cover every provider, so little is lost. |
+Linux features fully supported:
+- **Dragging the pill along its edge**: Tracked seamlessly via native X11 pointer queries (`XQueryPointer`).
+- **Seen-clears-it & Jump to terminal**: Process hierarchy is mapped via `/proc` and windows are raised/focused using EWMH `_NET_ACTIVE_WINDOW` and `_NET_CLIENT_LIST`.
+- **Antigravity CLI**: Official `agy --print /usage` CLI discovery and execution with defensive ANSI sanitization.
+- **Provider SVGs**: Complete built-in vector glyphs.
 
 Everything else — all providers, the hover card, the settings window, the tray menu, hooks,
 start at sign-in (an XDG autostart entry rather than a registry value) — behaves as it does

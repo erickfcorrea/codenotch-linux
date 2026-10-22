@@ -16,7 +16,6 @@ on:
 
 jobs:
   build:
-    if: github.repository == 'vinzdg/codenotch'
     name: Build and test
     runs-on: windows-latest
     defaults:
@@ -78,7 +77,6 @@ jobs:
   # The same crate builds on Linux, where the Win32 paths compile out. Kept to a
   # build and the tests: there is no runner with a desktop to show a notch on.
   linux:
-    if: github.repository == 'vinzdg/codenotch'
     name: Build and test (Linux)
     runs-on: ubuntu-latest
     defaults:

@@ -8,12 +8,17 @@
 #     paths, and they break a binary built against the system glibc.
 set -eu
 
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-bin=${CODENOTCH_BIN:-$root/target/release/codenotch}
-[ -x "$bin" ] || bin=$root/target/debug/codenotch
-
-if [ ! -x "$bin" ]; then
-  echo "No binary yet. Build one first:  cargo build --release -p codenotch" >&2
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -x "${CODENOTCH_BIN:-}" ]; then
+  bin="$CODENOTCH_BIN"
+elif [ -x "$here/codenotch" ]; then
+  bin="$here/codenotch"
+elif [ -x "$here/../target/release/codenotch" ]; then
+  bin="$here/../target/release/codenotch"
+elif [ -x "$here/../target/debug/codenotch" ]; then
+  bin="$here/../target/debug/codenotch"
+else
+  echo "No binary yet. Build one first: cargo build --release -p codenotch" >&2
   exit 1
 fi
 
