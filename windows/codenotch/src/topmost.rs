@@ -9,7 +9,10 @@
 //! that pinned this down (60 of 60 samples with the notch behind an ordinary window, style bit
 //! still set) and the two-contributor diagnosis this module implements.
 
+#[cfg(windows)]
 use tauri::{AppHandle, Manager, WebviewWindow};
+#[cfg(not(windows))]
+use tauri::{AppHandle, WebviewWindow};
 
 /// The foreground hook has no user-data parameter, so its callback reads the application handle
 /// installed when the watchdog starts. `start_watchdog` is called once during app setup.

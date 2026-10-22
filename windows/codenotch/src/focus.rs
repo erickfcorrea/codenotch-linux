@@ -327,7 +327,7 @@ pub mod x11_helpers {
         fn dlsym(handle: *mut core::ffi::c_void, symbol: *const std::os::raw::c_char) -> *mut core::ffi::c_void;
     }
 
-    pub fn load_x11() -> Option<&\x27static X11> {
+    pub fn load_x11() -> Option<&'static X11> {
         static INSTANCE: std::sync::OnceLock<Option<X11>> = std::sync::OnceLock::new();
         INSTANCE.get_or_init(|| {
             unsafe {
