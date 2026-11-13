@@ -25,6 +25,12 @@ pub fn find_agy() -> Option<PathBuf> {
             return Some(candidate);
         }
     }
+    if let Some(h) = dirs::home_dir() {
+        let candidate = h.join(".gemini").join("bin").join(bin_name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
     #[cfg(not(windows))]
     {
         if let Some(h) = dirs::home_dir() {
@@ -113,11 +119,12 @@ fn sanitize_terminal_output(input: &str) -> String {
 /// Returns an error on invalid or unrecognized format; never returns dummy 0% quotas.
 fn parse_quota(text: &str) -> Result<Vec<LimitWindow>, String> {
     let clean = sanitize_terminal_output(text);
-    if !clean.lines().any(|line| line.trim() == "Quota:") {
+    let has_quota_marker = clean.lines().any(|line| line.trim() == "Quota:" || (line.contains("Limit") && line.contains('%')));
+    if !has_quota_marker {
         return Err("CLI did not return a quota report".into());
     }
     let mut out = Vec::new();
-    for line in clean.lines().filter(|line| line.contains("Limit Remaining")) {
+    for line in clean.lines().filter(|line| line.contains('%') && (line.contains("Limit Remaining") || line.contains("Weekly Limit") || line.contains("Five Hour Limit") || line.contains("Limit"))) {
         let (left, reset) = line.rsplit_once('%').ok_or("Invalid CLI quota row")?;
         let (label, remaining_str) = left
             .trim()
@@ -136,7 +143,7 @@ fn parse_quota(text: &str) -> Result<Vec<LimitWindow>, String> {
         let label = label.split_whitespace().collect::<Vec<_>>().join(" ");
         let label = label
             .strip_suffix(" Remaining")
-            .ok_or("Unknown quota label")?
+            .unwrap_or(&label)
             .to_string();
         let short_label = label
             .replace(" Models", "")
@@ -703,6 +710,21 @@ mod tests {
         ] {
             assert!(parse_quota(bad).is_err());
         }
+    }
+
+    #[test]
+    fn test_parse_quota_tsv_piped_output() {
+        let text = "Gemini Models\tWeekly Limit Remaining\t75%\t2026-11-16T13:57:44Z\nGemini Models\tFive Hour Limit Remaining\t98%\t2026-11-13T17:57:52Z\nClaude and GPT models\tWeekly Limit Remaining\t100%\t2026-11-20T13:17:14Z\nClaude and GPT models\tFive Hour Limit Remaining\t100%\t2026-11-13T18:17:14Z\nGemini 4 Argon\tGemini 4 Argon Weekly Limit\t72%\t2026-11-18T18:24:30Z\n";
+        let windows = parse_quota(text).expect("piped TSV quota");
+        assert_eq!(windows.len(), 5);
+        assert_eq!(windows[0].id, "Gemini Models Five Hour Limit");
+        assert_eq!(windows[0].label, "5-hour Limit");
+        assert_eq!(windows[0].group.as_deref(), Some("Gemini Models"));
+        assert!((windows[0].used - 0.02).abs() < 1e-5);
+        assert_eq!(windows[4].id, "Gemini 4 Argon Weekly Limit");
+        assert_eq!(windows[4].label, "Weekly Limit");
+        assert_eq!(windows[4].group.as_deref(), Some("Gemini 4 Argon"));
+        assert!((windows[4].used - 0.28).abs() < 1e-5);
     }
 
     #[test]

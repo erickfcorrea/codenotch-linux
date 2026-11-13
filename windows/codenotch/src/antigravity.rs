@@ -198,7 +198,9 @@ fn discover() -> Option<Endpoint> {
 #[cfg(not(windows))]
 fn discover() -> Option<Endpoint> {
     let table = run_hidden("ps", &["-Ao", "pid,command"]);
-    let line = table.lines().find(|l| l.contains("language_server") && l.contains("--csrf_token"))?;
+    let line = table.lines().find(|l| {
+        (l.contains("language_server") || l.contains("agy")) && l.contains("--csrf_token")
+    })?;
     let pid: u32 = line.trim().split_whitespace().next()?.parse().ok()?;
     let csrf = flag_value(line, "--csrf_token")?;
     let out = run_hidden("lsof", &["-nP", "-a", "-p", &pid.to_string(), "-iTCP", "-sTCP:LISTEN"]);
@@ -252,27 +254,31 @@ fn local_agent() -> Option<ureq::Agent> {
 
 fn bridge_quota(ep: &Endpoint) -> Result<Vec<LimitWindow>, String> {
     let agent = local_agent().ok_or("TLS setup failed")?;
+    let http_agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(10)).build();
     let mut last = String::from("no port answered");
     for port in &ep.ports {
-        let url = format!("https://127.0.0.1:{port}{LS_SERVICE}");
-        match agent
-            .post(&url)
-            .set("Content-Type", "application/json")
-            .set(CSRF_HEADER, &ep.csrf)
-            .send_string(r#"{"forceRefresh":true}"#)
-        {
-            Ok(r) => match r.into_json::<serde_json::Value>() {
-                Ok(v) => {
-                    let w = windows_from_bridge(&v);
-                    if !w.is_empty() {
-                        return Ok(w);
+        for scheme in &["https", "http"] {
+            let url = format!("{scheme}://127.0.0.1:{port}{LS_SERVICE}");
+            let client = if *scheme == "https" { &agent } else { &http_agent };
+            match client
+                .post(&url)
+                .set("Content-Type", "application/json")
+                .set(CSRF_HEADER, &ep.csrf)
+                .send_string(r#"{"forceRefresh":true}"#)
+            {
+                Ok(r) => match r.into_json::<serde_json::Value>() {
+                    Ok(v) => {
+                        let w = windows_from_bridge(&v);
+                        if !w.is_empty() {
+                            return Ok(w);
+                        }
+                        last = format!("port {port} ({scheme}): no recognisable groups");
                     }
-                    last = format!("port {port}: no recognisable groups");
-                }
-                Err(e) => last = format!("port {port}: {e}"),
-            },
-            Err(ureq::Error::Status(code, _)) => last = format!("port {port}: HTTP {code}"),
-            Err(e) => last = format!("port {port}: {e}"),
+                    Err(e) => last = format!("port {port} ({scheme}): {e}"),
+                },
+                Err(ureq::Error::Status(code, _)) => last = format!("port {port} ({scheme}): HTTP {code}"),
+                Err(e) => last = format!("port {port} ({scheme}): {e}"),
+            }
         }
     }
     Err(last)
