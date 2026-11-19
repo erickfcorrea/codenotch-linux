@@ -56,15 +56,20 @@ pub fn set_hot(app: &AppHandle, rects: Vec<[f64; 4]>) {
         let Some(gdk_window) = gtk_window.window() else { return };
         let scale = gtk_window.scale_factor().max(1) as f64;
         let region = gtk::cairo::Region::create();
+        // A small overlap pad bridges sub-pixel rounding seams between pill, tail and hover card
+        // so moving the pointer into the popup never triggers a spurious leave_notify_event.
+        let pad = 4;
         for [x, y, width, height] in rects {
             if ![x, y, width, height].iter().all(|n| n.is_finite()) || width <= 0.0 || height <= 0.0 {
                 continue;
             }
-            let left = (x / scale).floor() as i32;
-            let top = (y / scale).floor() as i32;
-            let right = ((x + width) / scale).ceil() as i32;
-            let bottom = ((y + height) / scale).ceil() as i32;
-            let _ = region.union_rectangle(&gtk::cairo::RectangleInt::new(left, top, right - left, bottom - top));
+            let left = ((x / scale).floor() as i32 - pad).max(0);
+            let top = ((y / scale).floor() as i32 - pad).max(0);
+            let right = ((x + width) / scale).ceil() as i32 + pad;
+            let bottom = ((y + height) / scale).ceil() as i32 + pad;
+            if right > left && bottom > top {
+                let _ = region.union_rectangle(&gtk::cairo::RectangleInt::new(left, top, right - left, bottom - top));
+            }
         }
         gdk_window.input_shape_combine_region(&region, 0, 0);
     });

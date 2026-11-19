@@ -360,8 +360,11 @@ pub fn place_notch(app: &AppHandle) {
         zoom_notch(&w, ms, size);
         // Position from the window's measured physical size — deriving it from the scale factor
         // pushed the window past the right edge at 125 % / 150 % (the ring's right side was clipped).
+        // On GTK/X11 before first map, outer_size() can return (0, 0); fall back to target size.
         let (ww, wh) = w
             .outer_size()
+            .ok()
+            .filter(|s| s.width > 0 && s.height > 0)
             .map(|s| (s.width as i32, s.height as i32))
             .unwrap_or((target.width as i32, target.height as i32));
         let ratio = {
@@ -372,7 +375,7 @@ pub fn place_notch(app: &AppHandle) {
         let (x, y) = edge_origin(&mon, &edge, ww, wh, ratio);
         let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
         let mut placed = (x, y, ww, wh);
-        if w.outer_size().map(|s| s.width != target.width).unwrap_or(false) {
+        if w.outer_size().map(|s| s.width > 0 && s.width != target.width).unwrap_or(false) {
             let _ = w.set_size(target);
             let (x, y) = edge_origin(&mon, &edge, target.width as i32, target.height as i32, ratio);
             let _ = w.set_position(tauri::PhysicalPosition::new(x, y));
@@ -390,7 +393,11 @@ pub fn place_notch(app: &AppHandle) {
         // overwritten (#240) — place_notch runs after every drag as well as at startup, and a
         // truncating write wiped the rest of the session's diagnostic trail on every drag.
         applog(&format!(
-            "notch placed build={BUILD}: edge={edge} pos=({x},{y}) size=({ww}x{wh}) inner={:?} win_scale={scale} mon_scale={ms} notch_size={size} monitor={:?}=({},{} {}x{}) work={:?} card_insets_css={insets:?}",
+            "notch placed build={BUILD}: edge={edge} pos=({},{}) size=({}x{}) inner={:?} win_scale={scale} mon_scale={ms} notch_size={size} monitor={:?}=({},{} {}x{}) work={:?} card_insets_css={insets:?}",
+            placed.0,
+            placed.1,
+            placed.2,
+            placed.3,
             w.inner_size().map(|s| (s.width, s.height)).unwrap_or((0, 0)),
             mon.name,
             mon.x,
@@ -489,7 +496,7 @@ fn next_frame() {
 
 /// How often the work area is re-read. It only changes by hand — the taskbar moved to another edge,
 /// resized, or switched to auto-hide — so a second late is not noticeable.
-const WORK_AREA_POLL_MS: u64 = 1000;
+const WORK_AREA_POLL_MS: u64 = 2500;
 
 /// Puts the notch back on its edge when the work area moves under it.
 ///
@@ -1809,6 +1816,30 @@ fn set_show_usage_pace(app: AppHandle, on: bool) -> bool {
     on
 }
 
+#[tauri::command]
+fn get_low_power(app: AppHandle) -> bool {
+    let st = app.state::<AppState>();
+    let c = st.cfg.lock().unwrap();
+    c.low_power
+}
+
+#[tauri::command]
+fn set_low_power(app: AppHandle, on: bool) -> bool {
+    {
+        let st = app.state::<AppState>();
+        let mut c = st.cfg.lock().unwrap();
+        c.low_power = on;
+        config::save(&c);
+    }
+    let _ = app.emit("low_power", on);
+    on
+}
+
+#[tauri::command]
+fn refresh_all_providers(app: AppHandle) {
+    refresh_all(&app);
+}
+
 /// One attached monitor, as Settings lists it.
 #[derive(serde::Serialize)]
 pub struct MonitorInfo {
@@ -1898,7 +1929,7 @@ fn start_menu_updater(app: AppHandle) {
         let mut last: Option<Vec<Option<i64>>> = None;
         let mut ticked = std::time::Instant::now();
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(2));
+            std::thread::sleep(std::time::Duration::from_secs(4));
             let values: Vec<Option<i64>> = TRAY_PROVIDER_IDS
                 .iter()
                 .map(|id| ring_fraction(&app, id).map(|f| (f * 1000.0).round() as i64))
@@ -2190,6 +2221,9 @@ fn main() {
             set_notch_shows_remaining,
             get_show_usage_pace,
             set_show_usage_pace,
+            get_low_power,
+            set_low_power,
+            refresh_all_providers,
             settings_window::get_system_look,
             settings_window::quit_app,
             settings_window::settings_ready,
@@ -2245,7 +2279,7 @@ fn main() {
             std::thread::spawn(move || {
                 activity::lower_thread_priority();
                 loop {
-                    std::thread::sleep(std::time::Duration::from_millis(1500));
+                    std::thread::sleep(std::time::Duration::from_millis(2500));
                     if ack_scan(&acker) {
                         broadcast(&acker);
                     }

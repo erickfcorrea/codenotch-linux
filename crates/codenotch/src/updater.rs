@@ -83,14 +83,17 @@ fn latest_linux_release(current: &Version) -> Result<Option<Version>, String> {
     let agent = ureq::AgentBuilder::new()
         .timeout(Duration::from_secs(12))
         .build();
-    let body = agent
+    let resp = match agent
         .get(RELEASE_API)
         .set("Accept", "application/vnd.github+json")
         .set("User-Agent", "Codenotch-Linux")
         .call()
-        .map_err(|e| e.to_string())?
-        .into_string()
-        .map_err(|e| e.to_string())?;
+    {
+        Ok(r) => r,
+        Err(ureq::Error::Status(404, _)) => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    let body = resp.into_string().map_err(|e| e.to_string())?;
     newer_linux_release(&body, current)
 }
 

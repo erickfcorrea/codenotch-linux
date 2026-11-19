@@ -667,6 +667,12 @@ pub fn lower_thread_priority() {
 #[cfg(not(windows))]
 pub fn lower_thread_priority() {}
 
+fn activity_key(list: &[Activity]) -> Vec<(&str, &str, &str, &str)> {
+    list.iter()
+        .map(|a| (a.provider.as_str(), a.state.as_str(), a.name.as_str(), a.detail.as_str()))
+        .collect()
+}
+
 pub fn start(app: AppHandle) {
     std::thread::spawn(move || {
         lower_thread_priority(); // the probe always yields to foreground input
@@ -681,7 +687,7 @@ pub fn start(app: AppHandle) {
             }
             tick = tick.wrapping_add(1);
             let found = read_all(pres, &mut ctx);
-            if found != last {
+            if activity_key(&found) != activity_key(&last) {
                 // Log the first 20 state changes (with the Codex raw material) so thresholds can be calibrated
                 static LOGGED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
                 if LOGGED.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 20 {

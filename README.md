@@ -1,37 +1,122 @@
-# Codenotch for Linux
+<p align="center">
+  <img src="docs/design/codexnotch-banner.png" alt="Codexnotch for Linux — banner" width="100%">
+</p>
+
+# Codexnotch for Linux
 
 ![Platform](https://img.shields.io/badge/platform-Linux%20x86__64-black?logo=linux)
 ![Stack](https://img.shields.io/badge/Rust%20%2B%20Tauri%202-GTK3%20%2F%20WebKit2GTK-orange?logo=rust)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-**Um aplicativo nativo para Linux (X11 / XWayland) que fixa um *notch* discreto na borda da tela, mostrando em tempo real o consumo de cotas dos seus assistentes de código com IA, o estado de atividade das sessões locais (*working*, *waiting*, *done*) e modelos locais carregados no Ollama e LM Studio.**
+**Um aplicativo nativo exclusivo para Linux (X11 / XWayland) que fixa um _notch_ discreto na borda da tela, exibindo em tempo real o consumo de cotas dos seus assistentes de código com IA, a atividade das sessões locais (_working_, _waiting_, _done_) e modelos locais carregados no Ollama e LM Studio.**
+
+<p align="center">
+  <img src="docs/design/frame-124-hover-tooltip.png" alt="Prévia do notch com pop-up de detalhes e porcentagens" width="48%">
+  &nbsp;
+  <img src="docs/design/frame-125-detail.png" alt="Detalhe expandido das janelas de uso e anéis" width="48%">
+</p>
+
+---
+
+## Tutorial Rápido de Uso
+
+### 1. Instalar e abrir
+
+Se você compilou do código-fonte (veja a seção [Compilação](#-compilação-ubuntu--debian) abaixo):
+
+```bash
+./scripts/install-linux.sh
+codenotch
+```
+
+O Codenotch aparece imediatamente:
+
+- Como uma **pílula (notch)** presa na borda da tela;
+- Como um **ícone na bandeja do sistema** (perto do relógio).
+
+> **Dica:** Na primeira vez, o notch fica no modo _Exibir ao passar o cursor_ (ou sempre visível). Encoste o mouse na pílula na borda para abrir os anéis.
+
+---
+
+### 2. Como interagir com o Notch (Atalhos)
+
+| Ação                                                                                          | O que faz                                                                                                                                 |
+| :-------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Passar o mouse em um anel**                                                                 | Abre o **pop-up de detalhes** com a porcentagem exata de cada limite, barra de progresso, tempo restante até a renovação e sessões ativas |
+| **Clicar em um anel**                                                                         | Força a **atualização imediata** da leitura daquele provedor                                                                              |
+| **Clicar no arco/engrenagem ao lado da pílula**                                               | Abre a janela **Configurações (Codenotch Settings)**                                                                                      |
+| **Segurar `Alt` + arrastar a pílula** _(ou arrastar pelos 6 pontinhos ao lado da engrenagem)_ | Move o notch livremente para qualquer ponto das **4 bordas** (`esquerda`, `direita`, `superior`, `inferior`) ou outro monitor             |
+| **Botão direito na pílula ou ícone da bandeja**                                               | Menu rápido para alternar _Manter aberto_, atualizar tudo, abrir Configurações ou encerrar                                                |
+
+---
+
+### 3. Como ler as cores e anéis
+
+- **Anel colorido (uso):**
+  - **Verde** — uso confortável (abaixo do limite de atenção, padrão `< 50%`);
+  - **Amarelo** — atenção (padrão `50% – 69%`);
+  - **Vermelho** — crítico (padrão `>= 70%`).
+  - Você pode escolher entre mudança em **Degrau seco** ou **Rampa de cor contínua** e ajustar os limites em **Configurações → Aparência → Limites de uso**.
+- **Anel interno branco girando:** o assistente está trabalhando em uma tarefa agora.
+- **Anel interno amarelo pulsando:** o assistente está aguardando sua resposta ou aprovação.
+- **Ícone/anel esmaecido:** a última leitura está desatualizada (> 15 min) ou o provedor está offline; clique no anel para tentar ler novamente.
+
+---
+
+### 4. Como configurar seus provedores de IA
+
+Abra **Configurações → Contas** (use a barra de busca para filtrar qualquer um dos 14 provedores e clique em **Atualizar agora** para testar na hora):
+
+- **Claude Code:** basta estar logado no `claude`. Você também pode ativar **"Permitir que o Claude Code notifique o Codenotch"** para instalar os hooks automaticamente (faz o anel girar/pulsar em tempo real) e adicionar **múltiplas contas Claude** em paralelo.
+- **Google Antigravity:** detectado automaticamente pelo CLI (`agy`) ou sessão local aberta. Escolha na própria linha se o anel principal lê **Automático**, **Limite de 5 horas** ou **Limite semanal**, e qual família de modelos acompanhar (**Modelos Gemini** ou **Modelos Claude e GPT**).
+- **Cursor / OpenAI Codex / OpenCode / Command Code / Qoder / Grok / GitHub Copilot / GLM / DeepSeek / Mistral:** detectados automaticamente a partir das sessões/credenciais locais já autenticadas na máquina.
+- **Ollama (LLM local):** basta rodar `ollama serve` na porta padrão `11434` (`http://127.0.0.1:11434`). O Codenotch mostra os modelos carregados em VRAM/RAM.
+- **LM Studio (LLM local):** ative o _Local Server_ na porta padrão `1234` (`http://127.0.0.1:1234`) para ver os modelos ativos no notch.
+
+> **Atenção:** Ative a chave ao lado de cada provedor que você quer fixar no notch. Pelo menos um provedor permanece ativo para que a pílula nunca fique vazia.
+
+---
+
+### 5. Modo Leve (PCs fracos e notebook na bateria)
+
+O Codenotch foi otimizado para rodar liso tanto em máquinas fracas quanto em PCs potentes:
+
+- Sem filtros SVG `feGaussianBlur` pesados no compositor do Linux;
+- Atualização diferencial do DOM e região de clique Cairo (só redesenha quando algo realmente muda);
+- Animações pausadas automaticamente quando o notch está recolhido.
+
+Para deixar **ainda mais leve em PCs fracos**:
+
+1. Abra **Configurações → Aparência**.
+2. Ative **Modo leve (PCs fracos)**.
+3. Isso desliga animações contínuas dos anéis e transições, mantendo atualizações instantâneas com uso mínimo de CPU/GPU.
 
 ---
 
 ## Principais Recursos
 
 - **Notch flutuante nativo para Linux (X11 / XWayland):**
-  - Pílula com cantos côncavos (*fillets*), anéis coloridos por faixa de consumo, *hover card* detalhado com janelas de reset e arraste suave entre qualquer borda do monitor (`left`, `right`, `top`, `bottom`).
-  - **Click-through cirúrgico via Cairo (`gdk_window.input_shape_combine_region`):** cliques fora da pílula ou do card passam direto para a janela de trás, sem polling global de ponteiro.
-  - **Detecção real de tela cheia via EWMH (`_NET_WM_STATE_FULLSCREEN`):** recolhe automaticamente o notch durante vídeos, apresentações ou jogos em tela cheia.
-  - **Foco direto no terminal da sessão (`/proc` + `_NET_ACTIVE_WINDOW`):** clique na sessão ativa para trazer a janela do terminal correspondente para frente; olhar para o terminal limpa o estado *done* automaticamente (*seen-clears-it*).
-- **14 Providers suportados no Linux:**
-  1. **Claude Code** — Multi-conta (`~/.claude` e `~/.claude-<slug>`), renovação preventiva via `claude -p`, hooks determinísticos via `codenotch-hook` e fallback via *Transcript Watcher* (`notify` em `~/.claude/projects/**/*.jsonl`).
-  2. **OpenAI Codex** — Sessão local (`~/.codex/auth.json`), fallback via `codex` app-server (`account/rateLimits/read`) e SQLite WAL (`~/.codex/state_5.sqlite` e `thread_history_1.sqlite`).
-  3. **Cursor** — Leitura read-only WAL-aware de `~/.config/Cursor/User/globalStorage/state.vscdb` (cotas *included*, *API*, *on-demand* + estado real de *composer* em execução).
-  4. **Google Antigravity** — Suporte completo ao CLI oficial (`~/.local/bin/agy`, `~/.gemini/bin/agy` ou `PATH` com parser interativo e TSV), bridge local HTTP/HTTPS do `language_server` (`x-codeium-csrf-token`) e contagem de passos em `~/.gemini/antigravity*/brain/*/.system_generated/logs/transcript.jsonl`.
-  5. **GitHub Copilot** — `GH_TOKEN`/`GITHUB_TOKEN`, `~/.config/gh/hosts.yml` ou `gh auth token` → `/copilot_internal/user`.
-  6. **Grok** — `~/.grok/auth.json` → `cli-chat-proxy.grok.com/v1/billing?format=credits`.
-  7. **OpenCode / OpenCode Go** — `~/.local/share/opencode/auth.json` e `opencode.db` (`session_v2` WAL).
-  8. **GLM (Z.ai / ZCode)** — Chave em Claude/OpenCode ou cofre ZCode descriptografado localmente com AES-256-GCM + SHA-256.
-  9. **DeepSeek Harness** — Transcripts `.jsonl.zstd` em `~/.dsh` (`ruzstd`) + API de saldo da plataforma.
-  10. **Command Code** — `~/.commandcode/auth.json` → endpoints GOAT `/alpha`.
-  11. **Qoder** — Sidecar oficial `@qoder-ai/qoder-agent-sdk` (`qoder-usage.cjs`) reutilizando login `qodercli`.
-  12. **Mistral AI / Vibe** — Orçamento mensal via `/v1/billing/budget`.
-  13. **Ollama (Local)** — Modelos carregados em `http://127.0.0.1:11434/api/ps` (VRAM/RAM, quantização, tamanho de contexto e tempo de expiração).
-  14. **LM Studio (Local)** — Instâncias LLM carregadas em `http://127.0.0.1:1234/api/v1/models` (quantização, contexto e tamanho em disco).
+  - Pílula vetorial limpa com cantos côncavos (_fillets_), pop-up detalhado com porcentagens em destaque e arraste suave entre qualquer borda (`left`, `right`, `top`, `bottom`).
+  - **Click-through cirúrgico via Cairo (`gdk_window.input_shape_combine_region`):** cliques fora da pílula ou do pop-up atravessam direto para a janela de trás, sem polling global de ponteiro.
+  - **Detecção real de tela cheia via EWMH (`_NET_WM_STATE_FULLSCREEN`):** recolhe automaticamente o notch durante vídeos, apresentações ou jogos.
+  - **Foco direto no terminal da sessão (`/proc` + `_NET_ACTIVE_WINDOW`):** clique na sessão ativa para focar o terminal correspondente; ao voltar ao terminal, o estado _done_ limpa sozinho.
+- **14 Provedores suportados no Linux:**
+  1. **Claude Code** — Multi-conta (`~/.claude` e `~/.claude-<slug>`), hooks determinísticos via `codenotch-hook` e _Transcript Watcher_.
+  2. **OpenAI Codex** — `~/.codex/auth.json`, `codex` app-server e SQLite WAL.
+  3. **Cursor** — Leitura read-only WAL de `~/.config/Cursor/User/globalStorage/state.vscdb`.
+  4. **Google Antigravity** — CLI `agy` (interativo e TSV), bridge local do `language_server` e contagem de passos em `transcript.jsonl`.
+  5. **GitHub Copilot** — `GH_TOKEN`/`GITHUB_TOKEN`, `~/.config/gh/hosts.yml` ou `gh auth token`.
+  6. **Grok** — `~/.grok/auth.json`.
+  7. **OpenCode / OpenCode Go** — `~/.local/share/opencode/auth.json` e `opencode.db`.
+  8. **GLM (Z.ai / ZCode)** — Chave em Claude/OpenCode ou cofre ZCode (AES-256-GCM).
+  9. **DeepSeek Harness** — Transcripts `.jsonl.zstd` em `~/.dsh` + saldo da API.
+  10. **Command Code** — `~/.commandcode/auth.json`.
+  11. **Qoder** — Sidecar `@qoder-ai/qoder-agent-sdk` (`qodercli`).
+  12. **Mistral AI / Vibe** — `MISTRAL_API_KEY`, `mistral.json` ou `~/.vibe/.env`.
+  13. **Ollama (Local)** — `http://127.0.0.1:11434/api/ps`.
+  14. **LM Studio (Local)** — `http://127.0.0.1:1234/api/v1/models`.
 - **Alertas de renovação de cota & Autostart XDG:**
-  - Card flutuante de renovação + notificação nativa do desktop Linux (`notify-send`).
+  - Card flutuante + notificação nativa (`notify-send`).
   - Inicialização automática por usuário em `~/.config/autostart/codenotch.desktop`.
 
 ---
@@ -41,6 +126,7 @@
 ```text
 codenotch-linux/
 ├── Cargo.toml                  # Workspace Rust (codenotch + codenotch-hook)
+├── docs/design/                # Imagens de referência e banner do projeto
 ├── crates/
 │   ├── codenotch/              # Aplicativo principal Tauri 2 + GTK3 + X11
 │   │   ├── Cargo.toml
@@ -62,7 +148,7 @@ codenotch-linux/
 
 ---
 
-## Pré-requisitos e Compilação no Ubuntu / Debian
+## Compilação (Ubuntu / Debian)
 
 ### 1. Instalar dependências de sistema do GTK3 / WebKit2GTK (Tauri 2)
 
@@ -105,6 +191,14 @@ Ou executar diretamente do repositório:
 ```bash
 ./scripts/run-linux.sh
 ```
+
+---
+
+## Solução de Problemas
+
+- **O notch não aparece ou fica atrás de janelas no Wayland:** use sempre o comando `codenotch` ou `./scripts/run-linux.sh`, que força `GDK_BACKEND=x11` (via XWayland) para que a ancoragem e o _click-through_ funcionem corretamente.
+- **Erro `failed to bind port 48666`:** já existe outra instância do Codenotch rodando (por exemplo, um pacote `.deb` antigo). Encerre pela bandeja do sistema ou remova versões antigas com `sudo apt remove codenotch`.
+- **Logs e diagnóstico:** rode `codenotch doctor` no terminal ou abra a pasta de dados em **Configurações → Geral → Pasta de dados** (`~/.config/codenotch/run.log`).
 
 ---
 

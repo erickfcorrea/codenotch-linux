@@ -22,7 +22,8 @@ fn open_now(app: &AppHandle) {
     let theme = crate::theme_choice(app);
     let builder = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("settings.html".into()))
         .title("Codenotch Settings")
-        .inner_size(680.0, 560.0)
+        .inner_size(760.0, 620.0)
+        .min_inner_size(600.0, 480.0)
         .resizable(true)
         .maximizable(false)
         .decorations(true)
