@@ -1,0 +1,2 @@
+# Keep UI HTML/JS formatting stable for string-sliced unit tests
+crates/codenotch/ui/
