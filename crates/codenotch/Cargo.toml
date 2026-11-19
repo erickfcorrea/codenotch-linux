@@ -1,0 +1,30 @@
+[package]
+name = "codenotch"
+version = "1.0.0"
+edition = "2021"
+description = "Codenotch for Linux — floating X11/XWayland usage notch for AI coding assistants and local LLMs"
+license = "MIT"
+repository = "https://github.com/erickfcorrea/codenotch-linux"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls", "zip"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+semver = "1"
+tiny_http = "0.12"
+dirs = "5"
+notify = "6"
+ureq = { version = "2", features = ["json", "native-tls", "proxy-from-env"] }
+native-tls = "0.2"
+png = "0.17"
+ruzstd = "0.7"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+ring = "0.17"
+base64 = "0.22"
+gtk = "0.18"

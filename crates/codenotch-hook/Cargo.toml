@@ -1,0 +1,9 @@
+[package]
+name = "codenotch-hook"
+version = "1.0.0"
+edition = "2021"
+description = "Lightweight Linux hook relay for Claude Code -> Codenotch"
+license = "MIT"
+repository = "https://github.com/erickfcorrea/codenotch-linux"
+
+[dependencies]
